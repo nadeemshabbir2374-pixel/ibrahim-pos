@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ibrahim POS - Cloud Edition</title>
+    <title>Ibrahim POS - WhatsApp Cloud Edition</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
@@ -22,10 +22,11 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
         th { background: #f8f9fa; font-weight: 600; font-size: 12px; color: #666; }
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 11px; margin: 2px; }
         .btn-green { background: var(--accent); color: white; }
         .btn-blue { background: #3498db; color: white; }
         .btn-red { background: #e74c3c; color: white; }
+        .btn-wa { background: #25D366; color: white; } /* WhatsApp Color */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto; }
         .modal-content { background: white; width: 90%; max-width: 500px; margin: 40px auto; padding: 20px; border-radius: 12px; position: relative; }
         #loginOverlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 9999; display: flex; align-items: center; justify-content: center; }
@@ -101,6 +102,7 @@
         </div>
         <h1 class="no-print" style="text-align:right;">Bill: <span id="gTotal">0</span> PKR</h1>
         <div class="no-print" style="text-align:right;">
+            <button class="btn btn-wa" onclick="sendWhatsApp()">📱 WhatsApp Bill</button>
             <button class="btn btn-blue" onclick="preparePrint()">🖨️ Thermal Print</button>
             <button class="btn btn-green" onclick="finishSale()">✅ Finish Sale</button>
         </div>
@@ -158,7 +160,7 @@
 </div>
 
 <script>
-    // --- FIREBASE SETUP ---
+    // --- FIREBASE CONFIG ---
     const firebaseConfig = {
       apiKey: "AIzaSyDKYGyExqdL-qmilgycU2_0_t44FrzQedA",
       authDomain: "ibrahim-pos.firebaseapp.com",
@@ -172,44 +174,60 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Variables
     let config = { storeName: "Ibrahim Mobile", mobile: "03017900460", address: "Main Bazar", user: "admin", pass: "1234", sPass: "5555" };
-    let products = [];
-    let customers = [];
-    let sales = [];
-    let cart = [], activeCIDX = null;
+    let products = [], customers = [], sales = [], cart = [], activeCIDX = null;
 
-    // Load Data from Firebase on Start
-    db.ref('/').once('value', (snapshot) => {
+    db.ref('/').on('value', (snapshot) => {
         const data = snapshot.val();
         if(data) {
-            if(data.products) products = data.products;
-            if(data.customers) customers = data.customers;
-            if(data.sales) sales = data.sales;
-            if(data.config) config = data.config;
-            updateUI();
-            refreshUI();
+            products = data.products || [];
+            customers = data.customers || [];
+            sales = data.sales || [];
+            config = data.config || config;
+            updateUI(); refreshUI();
         }
     });
 
-    function save() {
-        db.ref('/').set({
-            products: products,
-            customers: customers,
-            sales: sales,
-            config: config
-        });
+    function save() { db.ref('/').set({ products, customers, sales, config }); }
+
+    // --- WHATSAPP FUNCTION ---
+    function sendWhatsApp() {
+        if(cart.length === 0) return alert("Cart khali hai!");
+        
+        let ci = document.getElementById('billCustSelect').value;
+        let num = "";
+        let cName = "Customer";
+
+        if(document.getElementById('saleType').value === 'udhaar') {
+            if(ci === "") return alert("Pehly Customer select karen!");
+            num = customers[ci].mob;
+            cName = customers[ci].name;
+        } else {
+            num = prompt("Customer WhatsApp Number (e.g. 923001234567):");
+        }
+
+        if(!num) return alert("Number zaroori hai!");
+        if(!num.startsWith('92')) num = '92' + num.replace(/^0/, '');
+
+        let msg = `*Raseed: ${config.storeName}*%0A`;
+        msg += `Tariq: ${new Date().toLocaleString()}%0A`;
+        msg += `Grahak: ${cName}%0A`;
+        msg += `----------------------------%0A`;
+        cart.forEach(i => { msg += `${i.name} x ${i.qty} = ${i.total} PKR%0A`; });
+        msg += `----------------------------%0A`;
+        msg += `*Kul Bill: ${document.getElementById('gTotal').innerText} PKR*%0A`;
+        msg += `Shukriya!`;
+
+        window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
     }
 
-    // --- REST OF YOUR LOGIC (UNCHANGED BUT SAVES TO CLOUD) ---
-
+    // --- REMAINING FUNCTIONS ---
     function checkLogin() {
         if(document.getElementById('user').value === config.user && document.getElementById('pass').value === config.pass) {
             document.getElementById('loginOverlay').style.display='none';
             document.getElementById('sidebarUI').style.display='block';
             document.getElementById('mainUI').style.display='block';
-            updateUI(); refreshUI();
-        } else alert("Invalid Login!");
+        } else alert("Ghalat Login!");
     }
 
     function addProduct() {
@@ -219,22 +237,23 @@
         let idx = products.findIndex(p => p.name.toLowerCase() === n.toLowerCase());
         if(idx !== -1) { products[idx].units += total; products[idx].buy = b; products[idx].sell = s; }
         else products.push({name: n, buy: b, sell: s, units: total});
-        save(); refreshUI();
+        save();
         ['pName','pBuy','pSell','pBox'].forEach(i => document.getElementById(i).value = '');
     }
 
     function addCustomer() {
-        let n = document.getElementById('cName').value, bl = parseFloat(document.getElementById('cBal').value || 0);
+        let n = document.getElementById('cName').value, bl = parseFloat(document.getElementById('cBal').value || 0), mob = document.getElementById('cMob').value;
         if(!n) return;
-        customers.push({name: n, mob: document.getElementById('cMob').value, bal: bl, history: [{date: new Date().toLocaleDateString(), desc: 'Opening', dr: bl, cr: 0, b: bl}]});
-        save(); refreshUI();
+        customers.push({name: n, mob: mob, bal: bl, history: [{date: new Date().toLocaleDateString(), desc: 'Opening', dr: bl, cr: 0, b: bl}]});
+        save();
+        ['cName','cMob','cBal'].forEach(i => document.getElementById(i).value = '');
     }
 
     function addToCart() {
         let i = document.getElementById('billItemSelect').value, q = parseInt(document.getElementById('billQty').value);
         if(i==="") return;
         let p = products[i];
-        if(p.units < q) return alert("Low Stock!");
+        if(p.units < q) return alert("Stock kam hai!");
         cart.push({name: p.name, price: p.sell, qty: q, total: p.sell * q, pIdx: i, buy: p.buy});
         renderCart();
     }
@@ -250,23 +269,14 @@
 
     function updateOldBalanceDisplay() {
         let t = parseFloat(document.getElementById('gTotal').innerText);
-        let old = 0;
-        let cName = "";
+        let old = 0; let cName = "";
         if(document.getElementById('saleType').value === 'udhaar') {
             let ci = document.getElementById('billCustSelect').value;
-            if(ci !== "") {
-                old = customers[ci].bal;
-                cName = "Customer: " + customers[ci].name;
-            }
+            if(ci !== "") { old = customers[ci].bal; cName = "Grahak: " + customers[ci].name; }
         }
         document.getElementById('sOldBal').innerText = old;
         document.getElementById('sTotalPay').innerText = old + t;
         document.getElementById('pCustNameDisplay').innerText = cName;
-    }
-
-    function preparePrint() {
-        document.getElementById('printDate').innerText = new Date().toLocaleString();
-        window.print();
     }
 
     function finishSale() {
@@ -281,18 +291,17 @@
             let c = customers[ci]; c.bal += t;
             c.history.push({date: new Date().toLocaleDateString(), desc: 'Invoice', dr: t, cr: 0, b: c.bal});
         }
-        alert("Sale Finished!"); cart = []; renderCart(); save(); refreshUI();
+        alert("Sale Mukammal!"); cart = []; renderCart(); save();
     }
 
+    function preparePrint() { document.getElementById('printDate').innerText = new Date().toLocaleString(); window.print(); }
     function openLedger(i) { activeCIDX = i; document.getElementById('ledgerModal').style.display='block'; document.getElementById('lHead').innerText = customers[i].name; renderLedger(); }
     function renderLedger() { let c = customers[activeCIDX]; document.getElementById('lBody').innerHTML = c.history.map(h => `<tr><td>${h.date}</td><td>${h.desc}</td><td>${h.dr || ''}</td><td>${h.cr || ''}</td><td>${h.b}</td></tr>`).join(''); }
-    
     function submitPayment() {
         let a = parseFloat(document.getElementById('pAmt').value), c = customers[activeCIDX];
         if(isNaN(a)) return; c.bal -= a;
         c.history.push({date: new Date().toLocaleDateString(), desc: 'Wasooli', dr: 0, cr: a, b: c.bal});
-        save(); renderLedger(); refreshUI();
-        document.getElementById('pAmt').value = '';
+        save(); renderLedger(); document.getElementById('pAmt').value = '';
     }
 
     function generateReport() {
@@ -309,7 +318,7 @@
     }
 
     function openSettings() { let p = prompt("Security Key:"); if(p === config.sPass) showPage('settings'); }
-    function saveStore() { config.storeName = document.getElementById('setStore').value; config.address = document.getElementById('setAddr').value; config.mobile = document.getElementById('setMob').value; save(); updateUI(); alert("Saved!"); }
+    function saveStore() { config.storeName = document.getElementById('setStore').value; config.address = document.getElementById('setAddr').value; config.mobile = document.getElementById('setMob').value; save(); alert("Saved!"); }
     function saveSecurity() { config.user = document.getElementById('setUser').value; config.pass = document.getElementById('setPass').value; config.sPass = document.getElementById('setSPass').value; save(); alert("Saved!"); }
 
     function updateUI() {
@@ -323,7 +332,7 @@
     }
 
     function refreshUI() {
-        document.getElementById('invBody').innerHTML = products.map((p, i) => `<tr><td>${p.name}</td><td>${p.buy}</td><td>${p.sell}</td><td>${p.units}</td><td class="no-print"><button onclick="products.splice(${i},1);save();refreshUI()">X</button></td></tr>`).join('');
+        document.getElementById('invBody').innerHTML = products.map((p, i) => `<tr><td>${p.name}</td><td>${p.buy}</td><td>${p.sell}</td><td>${p.units}</td><td class="no-print"><button onclick="products.splice(${i},1);save()">X</button></td></tr>`).join('');
         document.getElementById('custBody').innerHTML = customers.map((c, i) => `<tr><td>${c.name}</td><td>${c.mob}</td><td>${c.bal}</td><td><button class="btn btn-blue" onclick="openLedger(${i})">Ledger</button></td></tr>`).join('');
         document.getElementById('billItemSelect').innerHTML = '<option value="">-- Item --</option>' + products.map((p, i) => `<option value="${i}">${p.name} (${p.units})</option>`).join('');
         document.getElementById('billCustSelect').innerHTML = '<option value="">-- Customer --</option>' + customers.map((c, i) => `<option value="${i}">${c.name}</option>`).join('');
