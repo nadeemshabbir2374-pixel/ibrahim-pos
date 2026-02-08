@@ -192,34 +192,58 @@
 
     // --- WHATSAPP FUNCTION ---
     function sendWhatsApp() {
-        if(cart.length === 0) return alert("Cart khali hai!");
-        
+    if(cart.length === 0) return alert("Pehly bill mein items add karein!");
+    
+    let num = "";
+    let cName = "Customer";
+    let balanceInfo = ""; // Balance ke liye naya variable
+    let saleType = document.getElementById('saleType').value;
+
+    if(saleType === 'udhaar') {
         let ci = document.getElementById('billCustSelect').value;
-        let num = "";
-        let cName = "Customer";
-
-        if(document.getElementById('saleType').value === 'udhaar') {
-            if(ci === "") return alert("Pehly Customer select karen!");
-            num = customers[ci].mob;
-            cName = customers[ci].name;
-        } else {
-            num = prompt("Customer WhatsApp Number (e.g. 923001234567):");
-        }
-
-        if(!num) return alert("Number zaroori hai!");
-        if(!num.startsWith('92')) num = '92' + num.replace(/^0/, '');
-
-        let msg = `*Raseed: ${config.storeName}*%0A`;
-        msg += `Tariq: ${new Date().toLocaleString()}%0A`;
-        msg += `Grahak: ${cName}%0A`;
-        msg += `----------------------------%0A`;
-        cart.forEach(i => { msg += `${i.name} x ${i.qty} = ${i.total} PKR%0A`; });
-        msg += `----------------------------%0A`;
-        msg += `*Kul Bill: ${document.getElementById('gTotal').innerText} PKR*%0A`;
-        msg += `Shukriya!`;
-
-        window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
+        if(ci === "") return alert("Customer select karen!");
+        
+        let cust = customers[ci];
+        num = cust.mob;
+        cName = cust.name;
+        
+        // Balance ki calculations
+        let currentBill = parseFloat(document.getElementById('gTotal').innerText);
+        let oldBalance = cust.bal; // Bill add hone se pehle ka balance
+        let totalUdhaar = oldBalance + currentBill;
+        
+        balanceInfo = `--------------------------\n`;
+        balanceInfo += `Pichla Udhaar: ${oldBalance} PKR\n`;
+        balanceInfo += `*Kul Wajibul Ada: ${totalUdhaar} PKR*\n`;
+    } else {
+        num = prompt("Mobile Number (e.g. 923001234567):");
     }
+
+    if(!num) return alert("WhatsApp number zaroori hai!");
+    num = num.replace(/\D/g,'');
+    if(!num.startsWith('92')) num = '92' + num.replace(/^0/, '');
+
+    // Message Table
+    let msgText = `*Raseed: ${config.storeName}*\n`;
+    msgText += `Customer Name: ${cName}\n`;
+    msgText += `Date: ${new Date().toLocaleDateString()}\n`;
+    msgText += `--------------------------\n`;
+    
+    cart.forEach(item => {
+        msgText += `${item.name} x ${item.qty} = ${item.total} PKR\n`;
+    });
+    
+    msgText += `--------------------------\n`;
+    msgText += `*Mojooda Bill: ${document.getElementById('gTotal').innerText} PKR*\n`;
+    
+    // Agar Udhaar hai to balance info add hogi
+    msgText += balanceInfo;
+    
+    msgText += `\nShukriya!`;
+
+    let encodedMsg = encodeURIComponent(msgText);
+    window.open("https://wa.me/" + num + "?text=" + encodedMsg, '_blank');
+}
 
     // --- REMAINING FUNCTIONS ---
     function checkLogin() {
