@@ -3,20 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ibrahim POS - WhatsApp Cloud Edition</title>
+    <title>Ibrahim POS - Big Ledger Update</title>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; }
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { margin: 0; display: flex; background: var(--bg); color: #333; }
+        
+        /* Sidebar Styling */
         .sidebar { width: 260px; background: var(--primary); color: white; height: 100vh; position: fixed; padding: 20px; z-index: 100; }
         .sidebar h2 { text-align: center; color: var(--accent); border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; }
         .sidebar button { width: 100%; padding: 12px; margin: 8px 0; background: none; border: none; color: #bdc3c7; text-align: left; cursor: pointer; border-radius: 6px; font-size: 15px; display: flex; align-items: center; gap: 10px; }
         .sidebar button:hover, .sidebar button.active { background: #34495e; color: #fff; border-left: 5px solid var(--accent); }
+        
+        /* Main Content Styling */
         .main { margin-left: 260px; flex: 1; padding: 30px; min-height: 100vh; }
+        
+        /* SECTIONS */
         .section { display: none; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .section.active { display: block; }
+        
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
@@ -26,11 +33,26 @@
         .btn-green { background: var(--accent); color: white; }
         .btn-blue { background: #3498db; color: white; }
         .btn-red { background: #e74c3c; color: white; }
-        .btn-wa { background: #25D366; color: white; } /* WhatsApp Color */
+        .btn-wa { background: #25D366; color: white; }
+        
+        /* MODAL (UPDATED SIZE) */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto; }
-        .modal-content { background: white; width: 90%; max-width: 500px; margin: 40px auto; padding: 20px; border-radius: 12px; position: relative; }
+        .modal-content { 
+            background: white; 
+            width: 95%;        /* Mobile friendly width */
+            max-width: 900px;  /* Desktop par boht bada aur clear dikhega */
+            min-height: 60vh;  /* Height bhi badi kar di hai */
+            margin: 40px auto; 
+            padding: 30px; 
+            border-radius: 12px; 
+            position: relative; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        
         #loginOverlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--primary); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .login-box { background: white; padding: 40px; border-radius: 15px; width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+
+        /* Print Styling */
         @media print {
             @page { size: 80mm auto; margin: 0; }
             html, body { height: auto; background: white; width: 80mm; margin: 0; padding: 0; }
@@ -73,6 +95,7 @@
 </div>
 
 <div class="main" id="mainUI" style="display:none;">
+
     <div id="billing" class="section active">
         <div class="thermal-header">
             <h1 id="pStoreName"></h1>
@@ -82,34 +105,43 @@
             <p id="pCustNameDisplay" style="font-weight: bold; margin-top:5px;"></p>
         </div>
         <div class="dashed-line"></div>
+        
         <div class="input-group no-print">
-            <select id="saleType" onchange="toggleCust()"><option value="cash">Cash Sale</option><option value="udhaar">Udhaar (Credit)</option></select>
+            <select id="saleType" onchange="toggleCust()">
+                <option value="cash">Cash Sale</option>
+                <option value="udhaar">Udhaar (Credit)</option>
+            </select>
             <select id="billCustSelect" onchange="updateOldBalanceDisplay()" style="display:none; flex:1;"></select>
+            <input type="text" id="itemSearch" placeholder="🔍 Search..." onkeyup="filterItems()" style="width: 120px; border: 2px solid var(--accent);">
             <select id="billItemSelect" style="flex:2;"></select>
             <input type="number" id="billQty" value="1" style="width:80px;">
             <button class="btn btn-green" onclick="addToCart()">Add</button>
         </div>
+        
         <table>
             <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Total</th><th class="no-print">X</th></tr></thead>
             <tbody id="cartTable"></tbody>
         </table>
+        
         <div class="dashed-line"></div>
         <div class="solid-line"></div>
+        
         <div class="bill-summary">
             <div>Old Balance: <span id="sOldBal">0</span></div>
             <div>Current Bill: <span id="sCurBill">0</span></div>
             <div style="margin-top:5px;"><b>Total Payable: <span id="sTotalPay">0</span></b></div>
         </div>
+        
         <h1 class="no-print" style="text-align:right;">Bill: <span id="gTotal">0</span> PKR</h1>
         <div class="no-print" style="text-align:right;">
             <button class="btn btn-wa" onclick="sendWhatsApp()">📱 WhatsApp Bill</button>
-            <button class="btn btn-blue" onclick="preparePrint()">🖨️ Thermal Print</button>
-            <button class="btn btn-green" onclick="finishSale()">✅ Finish Sale</button>
+            <button class="btn btn-blue" onclick="preparePrint()">🖨️ Print</button>
+            <button class="btn btn-green" onclick="finishSale()">✅ Finish</button>
         </div>
-    </div>
+    </div> 
 
     <div id="inventory" class="section">
-        <h2>📦 Stock</h2>
+        <h2>📦 Stock Management</h2>
         <div class="input-group">
             <input type="text" id="pName" placeholder="Product Name">
             <input type="number" id="pBuy" placeholder="Buy Price">
@@ -122,13 +154,13 @@
     </div>
 
     <div id="customers" class="section">
-        <h2>👥 Customers</h2>
+        <h2>👥 Customer Management</h2>
         <div class="input-group no-print"><input type="text" id="cName" placeholder="Name"><input type="text" id="cMob" placeholder="Mobile"><input type="number" id="cBal" placeholder="Bal"><button class="btn btn-blue" onclick="addCustomer()">Add</button></div>
         <table><thead><tr><th>Name</th><th>Mobile</th><th>Balance</th><th>Action</th></tr></thead><tbody id="custBody"></tbody></table>
     </div>
 
     <div id="reports" class="section">
-        <h2>📊 Reports</h2>
+        <h2>📊 Daily Reports</h2>
         <input type="date" id="repDate" onchange="generateReport()">
         <div style="display:flex; gap:10px; margin:20px 0;">
             <div style="background:var(--accent); color:white; padding:15px; border-radius:10px; flex:1;">Sale: <h3 id="repS">0</h3></div>
@@ -145,22 +177,34 @@
         <div class="input-group"><input type="text" id="setUser" placeholder="User"><input type="password" id="setPass" placeholder="Pass"><input type="password" id="setSPass" placeholder="Key"></div>
         <button class="btn btn-red" onclick="saveSecurity()">Update Passwords</button>
     </div>
+
 </div>
 
 <div id="ledgerModal" class="modal">
     <div class="modal-content">
-        <button onclick="closeModal()" class="btn btn-red no-print" style="float:right;">X</button>
-        <h3>Ledger: <span id="lHead"></span></h3>
-        <div class="input-group no-print">
-            <input type="number" id="pAmt" placeholder="Amount">
-            <button class="btn btn-green" onclick="submitPayment()">Save Payment</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="margin:0;">📒 Ledger: <span id="lHead"></span></h2>
+            <button onclick="closeModal()" class="btn btn-red no-print" style="padding: 10px 15px;">❌ Close</button>
         </div>
-        <table><thead><tr><th>Date</th><th>Note</th><th>Dr</th><th>Cr</th><th>Bal</th></tr></thead><tbody id="lBody"></tbody></table>
+
+        <div class="input-group no-print" style="background: #f8f9fa; padding:15px; border-radius:8px;">
+            <input type="number" id="pAmt" placeholder="Enter Amount" style="flex:1;">
+            <button class="btn btn-green" onclick="submitPayment()">💰 Save Payment</button>
+            <button class="btn btn-wa" onclick="shareLedger()">📱 Share on WhatsApp</button>
+        </div>
+        
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table>
+                <thead style="position: sticky; top: 0; z-index: 10;">
+                    <tr><th>Date</th><th>Detail</th><th>Dr (Len)</th><th>Cr (Den)</th><th>Balance</th></tr>
+                </thead>
+                <tbody id="lBody"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <script>
-    // --- FIREBASE CONFIG ---
     const firebaseConfig = {
       apiKey: "AIzaSyDKYGyExqdL-qmilgycU2_0_t44FrzQedA",
       authDomain: "ibrahim-pos.firebaseapp.com",
@@ -190,62 +234,68 @@
 
     function save() { db.ref('/').set({ products, customers, sales, config }); }
 
-    // --- WHATSAPP FUNCTION ---
+    // --- BILL WHATSAPP ---
     function sendWhatsApp() {
-    if(cart.length === 0) return alert("Pehly bill mein items add karein!");
-    
-    let num = "";
-    let cName = "Customer";
-    let balanceInfo = ""; // Balance ke liye naya variable
-    let saleType = document.getElementById('saleType').value;
+        if(cart.length === 0) return alert("Pehly bill mein items add karein!");
+        let num = "", cName = "Customer", balanceInfo = "", saleType = document.getElementById('saleType').value;
 
-    if(saleType === 'udhaar') {
-        let ci = document.getElementById('billCustSelect').value;
-        if(ci === "") return alert("Customer select karen!");
-        
-        let cust = customers[ci];
-        num = cust.mob;
-        cName = cust.name;
-        
-        // Balance ki calculations
-        let currentBill = parseFloat(document.getElementById('gTotal').innerText);
-        let oldBalance = cust.bal; // Bill add hone se pehle ka balance
-        let totalUdhaar = oldBalance + currentBill;
-        
-        balanceInfo = `--------------------------\n`;
-        balanceInfo += `Pichla Udhaar: ${oldBalance} PKR\n`;
-        balanceInfo += `*Kul Wajibul Ada: ${totalUdhaar} PKR*\n`;
-    } else {
-        num = prompt("Mobile Number (e.g. 923001234567):");
+        if(saleType === 'udhaar') {
+            let ci = document.getElementById('billCustSelect').value;
+            if(ci === "") return alert("Customer select karen!");
+            let cust = customers[ci];
+            num = cust.mob; cName = cust.name;
+            let currentBill = parseFloat(document.getElementById('gTotal').innerText);
+            let oldBalance = cust.bal;
+            let totalUdhaar = oldBalance + currentBill;
+            balanceInfo = `--------------------------\nPichla Udhaar: ${oldBalance} PKR\n*Kul Wajibul Ada: ${totalUdhaar} PKR*\n`;
+        } else {
+            num = prompt("Mobile Number (e.g. 923001234567):");
+        }
+
+        if(!num) return alert("WhatsApp number zaroori hai!");
+        num = num.replace(/\D/g,'');
+        if(!num.startsWith('92')) num = '92' + num.replace(/^0/, '');
+
+        let msgText = `*Raseed: ${config.storeName}*\nCustomer: ${cName}\nDate: ${new Date().toLocaleDateString()}\n--------------------------\n`;
+        cart.forEach(item => { msgText += `${item.name} x ${item.qty} = ${item.total}\n`; });
+        msgText += `--------------------------\n*Total Bill: ${document.getElementById('gTotal').innerText} PKR*\n${balanceInfo}\nShukriya!`;
+
+        window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(msgText), '_blank');
     }
 
-    if(!num) return alert("WhatsApp number zaroori hai!");
-    num = num.replace(/\D/g,'');
-    if(!num.startsWith('92')) num = '92' + num.replace(/^0/, '');
+    // --- NEW LEDGER WHATSAPP FUNCTION ---
+    function shareLedger() {
+        let c = customers[activeCIDX];
+        let num = c.mob;
+        
+        if(!num) return alert("Customer ka number nahi hai!");
+        num = num.replace(/\D/g,'');
+        if(!num.startsWith('92')) num = '92' + num.replace(/^0/, '');
 
-    // Message Table
-    let msgText = `*Raseed: ${config.storeName}*\n`;
-    msgText += `Customer Name: ${cName}\n`;
-    msgText += `Date: ${new Date().toLocaleDateString()}\n`;
-    msgText += `--------------------------\n`;
-    
-    cart.forEach(item => {
-        msgText += `${item.name} x ${item.qty} = ${item.total} PKR\n`;
-    });
-    
-    msgText += `--------------------------\n`;
-    msgText += `*Mojooda Bill: ${document.getElementById('gTotal').innerText} PKR*\n`;
-    
-    // Agar Udhaar hai to balance info add hogi
-    msgText += balanceInfo;
-    
-    msgText += `\nShukriya!`;
+        let txt = `*KHATA REPORT: ${c.name}*\n`;
+        txt += `Date: ${new Date().toLocaleDateString()}\n`;
+        txt += `--------------------------------\n`;
+        txt += `Date       | Detail  | Dr   | Cr   | Bal\n`;
+        txt += `--------------------------------\n`;
+        
+        // Akhri 15 transaction uthayenge taake msg boht lamba na ho
+        let historyToSend = c.history.slice(-15);
+        
+        historyToSend.forEach(h => {
+            let dr = h.dr > 0 ? h.dr : "0";
+            let cr = h.cr > 0 ? h.cr : "0";
+            // Formatting text for simple list
+            txt += `${h.date.split('/').slice(0,2).join('/')} | ${h.desc.substring(0,6)} | ${dr} | ${cr} | ${h.b}\n`;
+        });
+        
+        txt += `--------------------------------\n`;
+        txt += `*CURRENT BALANCE: ${c.bal} PKR*\n`;
+        txt += `\nSent from ${config.storeName}`;
 
-    let encodedMsg = encodeURIComponent(msgText);
-    window.open("https://wa.me/" + num + "?text=" + encodedMsg, '_blank');
-}
+        window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(txt), '_blank');
+    }
 
-    // --- REMAINING FUNCTIONS ---
+    // --- MAIN LOGIC ---
     function checkLogin() {
         if(document.getElementById('user').value === config.user && document.getElementById('pass').value === config.pass) {
             document.getElementById('loginOverlay').style.display='none';
@@ -274,33 +324,57 @@
     }
 
     function addToCart() {
-        let i = document.getElementById('billItemSelect').value, q = parseInt(document.getElementById('billQty').value);
+        let i = document.getElementById('billItemSelect').value;
+        let q = parseInt(document.getElementById('billQty').value);
         if(i==="") return;
         let p = products[i];
         if(p.units < q) return alert("Stock kam hai!");
         cart.push({name: p.name, price: p.sell, qty: q, total: p.sell * q, pIdx: i, buy: p.buy});
-        renderCart();
+        document.getElementById('itemSearch').value = ""; refreshUI(); renderCart();
     }
 
     function renderCart() {
         let h = '', t = 0;
-        cart.forEach((c, i) => { t += c.total; h += `<tr><td>${c.name}</td><td>${c.price}</td><td>${c.qty}</td><td>${c.total}</td><td class="no-print"><button onclick="cart.splice(${i},1);renderCart()">X</button></td></tr>`; });
+        cart.forEach((c, i) => { 
+            t += c.total; 
+            h += `<tr><td>${c.name}</td><td><input type="number" value="${c.price}" style="width:70px;" onchange="editCart(${i}, 'price', this.value)"></td><td><input type="number" value="${c.qty}" style="width:50px;" onchange="editCart(${i}, 'qty', this.value)"></td><td>${c.total}</td><td class="no-print"><button class="btn btn-red" onclick="cart.splice(${i},1);renderCart()">X</button></td></tr>`; 
+        });
         document.getElementById('cartTable').innerHTML = h; 
         document.getElementById('gTotal').innerText = t;
         document.getElementById('sCurBill').innerText = t;
         updateOldBalanceDisplay();
     }
 
+    function editCart(index, field, value) {
+        let val = parseFloat(value);
+        if(isNaN(val) || val < 0) val = 0;
+        if(field === 'qty') cart[index].qty = val;
+        if(field === 'price') cart[index].price = val;
+        cart[index].total = cart[index].qty * cart[index].price;
+        renderCart();
+    }
+
+    function filterItems() {
+        let input = document.getElementById('itemSearch').value.toLowerCase();
+        let select = document.getElementById('billItemSelect');
+        select.innerHTML = '<option value="">-- Select --</option>';
+        products.forEach((p, index) => {
+            if (p.name.toLowerCase().includes(input)) {
+                let opt = document.createElement('option');
+                opt.value = index; opt.innerHTML = `${p.name} (${p.units})`; select.appendChild(opt);
+            }
+        });
+        if(select.options.length > 1) select.selectedIndex = 1;
+    }
+
     function updateOldBalanceDisplay() {
-        let t = parseFloat(document.getElementById('gTotal').innerText);
-        let old = 0; let cName = "";
+        let t = parseFloat(document.getElementById('gTotal').innerText), old = 0;
         if(document.getElementById('saleType').value === 'udhaar') {
             let ci = document.getElementById('billCustSelect').value;
-            if(ci !== "") { old = customers[ci].bal; cName = "Grahak: " + customers[ci].name; }
+            if(ci !== "") old = customers[ci].bal;
         }
         document.getElementById('sOldBal').innerText = old;
         document.getElementById('sTotalPay').innerText = old + t;
-        document.getElementById('pCustNameDisplay').innerText = cName;
     }
 
     function finishSale() {
@@ -319,12 +393,14 @@
     }
 
     function preparePrint() { document.getElementById('printDate').innerText = new Date().toLocaleString(); window.print(); }
+    
+    // LEDGER LOGIC
     function openLedger(i) { activeCIDX = i; document.getElementById('ledgerModal').style.display='block'; document.getElementById('lHead').innerText = customers[i].name; renderLedger(); }
-    function renderLedger() { let c = customers[activeCIDX]; document.getElementById('lBody').innerHTML = c.history.map(h => `<tr><td>${h.date}</td><td>${h.desc}</td><td>${h.dr || ''}</td><td>${h.cr || ''}</td><td>${h.b}</td></tr>`).join(''); }
+    function renderLedger() { let c = customers[activeCIDX]; document.getElementById('lBody').innerHTML = c.history.map(h => `<tr><td>${h.date}</td><td>${h.desc}</td><td>${h.dr || '-'}</td><td>${h.cr || '-'}</td><td>${h.b}</td></tr>`).join(''); }
     function submitPayment() {
         let a = parseFloat(document.getElementById('pAmt').value), c = customers[activeCIDX];
-        if(isNaN(a)) return; c.bal -= a;
-        c.history.push({date: new Date().toLocaleDateString(), desc: 'Wasooli', dr: 0, cr: a, b: c.bal});
+        if(isNaN(a) || a <= 0) return; c.bal -= a;
+        c.history.push({date: new Date().toLocaleDateString(), desc: 'Cash Payment', dr: 0, cr: a, b: c.bal});
         save(); renderLedger(); document.getElementById('pAmt').value = '';
     }
 
@@ -358,7 +434,10 @@
     function refreshUI() {
         document.getElementById('invBody').innerHTML = products.map((p, i) => `<tr><td>${p.name}</td><td>${p.buy}</td><td>${p.sell}</td><td>${p.units}</td><td class="no-print"><button onclick="products.splice(${i},1);save()">X</button></td></tr>`).join('');
         document.getElementById('custBody').innerHTML = customers.map((c, i) => `<tr><td>${c.name}</td><td>${c.mob}</td><td>${c.bal}</td><td><button class="btn btn-blue" onclick="openLedger(${i})">Ledger</button></td></tr>`).join('');
-        document.getElementById('billItemSelect').innerHTML = '<option value="">-- Item --</option>' + products.map((p, i) => `<option value="${i}">${p.name} (${p.units})</option>`).join('');
+        let select = document.getElementById('billItemSelect');
+        if(select.innerHTML === '' || select.options.length <= 1) {
+            select.innerHTML = '<option value="">-- Item --</option>' + products.map((p, i) => `<option value="${i}">${p.name} (${p.units})</option>`).join('');
+        }
         document.getElementById('billCustSelect').innerHTML = '<option value="">-- Customer --</option>' + customers.map((c, i) => `<option value="${i}">${c.name}</option>`).join('');
     }
 
